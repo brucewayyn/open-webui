@@ -241,11 +241,20 @@ FORWARD_SESSION_INFO_HEADER_MESSAGE_ID = os.environ.get(
     'FORWARD_SESSION_INFO_HEADER_MESSAGE_ID', 'X-OpenWebUI-Message-Id'
 )
 FORWARD_SESSION_INFO_HEADER_CHAT_ID = os.environ.get('FORWARD_SESSION_INFO_HEADER_CHAT_ID', 'X-OpenWebUI-Chat-Id')
+FORWARD_USER_INFO_HEADER_JWT_SECRET = (os.environ.get('FORWARD_USER_INFO_HEADER_JWT_SECRET') or '').strip() or None
+FORWARD_USER_INFO_HEADER_JWT = os.environ.get('FORWARD_USER_INFO_HEADER_JWT', 'X-OpenWebUI-User-Jwt')
+try:
+    FORWARD_USER_INFO_HEADER_JWT_EXPIRES_SECONDS = int(
+        os.environ.get('FORWARD_USER_INFO_HEADER_JWT_EXPIRES_SECONDS', '300')
+    )
+except ValueError:
+    FORWARD_USER_INFO_HEADER_JWT_EXPIRES_SECONDS = 300
 
 # Experimental feature, may be removed in future
 ENABLE_STAR_SESSIONS_MIDDLEWARE = os.environ.get('ENABLE_STAR_SESSIONS_MIDDLEWARE', 'False').lower() == 'true'
 
 ENABLE_EASTER_EGGS = os.environ.get('ENABLE_EASTER_EGGS', 'True').lower() == 'true'
+ENABLE_KB_EXEC = os.environ.get('ENABLE_KB_EXEC', 'False').lower() == 'true'
 
 ####################################
 # ENABLE_PROFILE_IMAGE_URL_FORWARDING
@@ -266,6 +275,9 @@ PROFILE_IMAGE_ALLOWED_MIME_TYPES = frozenset(
     ).split(',')
     if t.strip()
 )
+
+_profile_image_max_data_uri_size = os.environ.get('PROFILE_IMAGE_MAX_DATA_URI_SIZE', '').strip()
+PROFILE_IMAGE_MAX_DATA_URI_SIZE = int(_profile_image_max_data_uri_size) if _profile_image_max_data_uri_size else None
 
 ####################################
 # WEBUI_BUILD_HASH
@@ -553,6 +565,7 @@ WEBUI_AUTH_TRUSTED_ROLE_HEADER = os.environ.get('WEBUI_AUTH_TRUSTED_ROLE_HEADER'
 CUSTOM_API_KEY_HEADER = os.environ.get('CUSTOM_API_KEY_HEADER', 'x-api-key')
 
 ENABLE_PASSWORD_VALIDATION = os.environ.get('ENABLE_PASSWORD_VALIDATION', 'False').lower() == 'true'
+PASSWORD_HASH_ALGORITHM = os.environ.get('PASSWORD_HASH_ALGORITHM', 'bcrypt').lower()
 PASSWORD_VALIDATION_REGEX_PATTERN = os.environ.get(
     'PASSWORD_VALIDATION_REGEX_PATTERN',
     r'^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[^\w\s]).{8,}$',
@@ -570,6 +583,8 @@ PASSWORD_VALIDATION_HINT = os.environ.get('PASSWORD_VALIDATION_HINT', '')
 
 
 BYPASS_MODEL_ACCESS_CONTROL = os.environ.get('BYPASS_MODEL_ACCESS_CONTROL', 'False').lower() == 'true'
+BYPASS_RETRIEVAL_ACCESS_CONTROL = os.environ.get('BYPASS_RETRIEVAL_ACCESS_CONTROL', 'False').lower() == 'true'
+ENABLE_RETRIEVAL_UNSCOPED_COLLECTIONS = os.environ.get('ENABLE_RETRIEVAL_UNSCOPED_COLLECTIONS', 'False').lower() == 'true'
 
 # When enabled, skips pydub-based preprocessing (format conversion, compression,
 # and chunked splitting) before sending files to processing engines. Useful when
@@ -969,10 +984,24 @@ SENTENCE_TRANSFORMERS_CROSS_ENCODER_SIGMOID_ACTIVATION_FUNCTION = (
 
 ENABLE_VERSION_UPDATE_CHECK = os.environ.get('ENABLE_VERSION_UPDATE_CHECK', 'true').lower() == 'true'
 OFFLINE_MODE = os.environ.get('OFFLINE_MODE', 'false').lower() == 'true'
+ENABLE_PYODIDE_FILE_PERSISTENCE = os.environ.get('ENABLE_PYODIDE_FILE_PERSISTENCE', 'false').lower() == 'true'
 
 if OFFLINE_MODE:
     os.environ['HF_HUB_OFFLINE'] = '1'
     ENABLE_VERSION_UPDATE_CHECK = False
+
+USER_AGENT = os.environ.get('USER_AGENT', '')
+
+MCP_INITIALIZE_TIMEOUT = os.environ.get('MCP_INITIALIZE_TIMEOUT', '10')
+try:
+    MCP_INITIALIZE_TIMEOUT = int(MCP_INITIALIZE_TIMEOUT)
+except (ValueError, TypeError):
+    MCP_INITIALIZE_TIMEOUT = 10
+
+_mineru_max_markdown_bytes = os.environ.get('MINERU_MAX_MARKDOWN_BYTES', '')
+MINERU_MAX_MARKDOWN_BYTES = int(_mineru_max_markdown_bytes) if _mineru_max_markdown_bytes else None
+
+ENABLE_VALVE_ENCRYPTION = os.environ.get('ENABLE_VALVE_ENCRYPTION', 'False').lower() == 'true'
 
 ####################################
 # AUDIT LOGGING
