@@ -1,4 +1,5 @@
 <script lang="ts">
+	import ParticleOrb from '../MessageInput/CallOverlay/ParticleOrb.svelte';
 	import EditPencilIcon from '$lib/components/layout/Sidebar/icons/EditPencil.svelte';
 	import CopyIcon from '$lib/components/layout/Sidebar/icons/Copy.svelte';
 	import TrashIcon from '$lib/components/layout/Sidebar/icons/Trash.svelte';
@@ -712,12 +713,26 @@
 		dir={$settings.chatDirection}
 		style="scroll-margin-top: 3rem;"
 	>
-		<div class={`shrink-0 ltr:mr-2 rtl:ml-2 hidden @lg:flex mt-0.5 `}>
-			<ProfileImage
-				src={`${WEBUI_API_BASE_URL}/models/model/profile/image?id=${model?.id ?? message.model}&lang=${$i18n.language}`}
-				className={'size-7 assistant-message-profile-image'}
-			/>
-		</div>
+		{#if !compactPreview && !readOnly}
+			<div class="flex size-9 shrink-0 items-center justify-center ltr:mr-1 rtl:ml-1">
+				<ParticleOrb
+					size={42}
+					animated={!message.done && !message.error}
+					state={message.done || message.error
+						? 'idle'
+						: visibleResponseContent.trim()
+							? 'speaking'
+							: 'thinking'}
+				/>
+			</div>
+		{:else}
+			<div class={`shrink-0 ltr:mr-2 rtl:ml-2 hidden @lg:flex mt-0.5 `}>
+				<ProfileImage
+					src={`${WEBUI_API_BASE_URL}/models/model/profile/image?id=${model?.id ?? message.model}&lang=${$i18n.language}`}
+					className={'size-7 assistant-message-profile-image'}
+				/>
+			</div>
+		{/if}
 
 		<div class="flex-auto w-0 pl-1 relative">
 			{#if !compactPreview}
