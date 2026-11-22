@@ -211,7 +211,13 @@
 	});
 </script>
 
-<span class="voice-orb" class:muted aria-hidden="true">
+<span
+	class="voice-orb"
+	class:muted
+	class:speaking
+	style:--voice-level={Math.min(1, Math.max(0, level * (speaking ? 12 : 6)))}
+	aria-hidden="true"
+>
 	<canvas bind:this={canvas}></canvas>
 </span>
 
@@ -228,19 +234,49 @@
 		width: 100%;
 		height: 100%;
 		border-radius: 50%;
-		background: radial-gradient(circle at 68% 22%, #9a9ca1, #7b7d82 49%, #5d6065);
 	}
-	:global(.dark) canvas {
-		background: radial-gradient(circle at 68% 22%, #b9bbc0, #93959a 49%, #6d7076);
+	.voice-orb::before {
+		content: '';
+		position: absolute;
+		inset: 0;
+		border-radius: 50%;
+		background: radial-gradient(ellipse at 32% 22%, #d1f6ec, transparent 55%),
+			radial-gradient(ellipse at 72% 74%, #315c80, #609b9d 80%);
+		background-size: 145% 145%;
+		background-position: 40% 40%;
+		transform: scale(calc(1 + var(--voice-level) * 0.12));
+		transition: transform 120ms ease-out, filter 200ms ease;
+		animation: drift 4s ease-in-out infinite alternate;
 	}
-	canvas:global(.rendered) {
-		background: transparent;
+	.speaking::before {
+		filter: brightness(1.18) saturate(1.3);
+		animation-duration: 2s;
+	}
+	.voice-orb:has(canvas:global(.rendered))::before {
+		display: none;
+	}
+	.muted::before {
+		animation-play-state: paused;
+		transform: none;
+	}
+	@keyframes drift {
+		from {
+			background-position: 15% 20%;
+		}
+		to {
+			background-position: 90% 80%;
+		}
 	}
 	.muted {
 		opacity: 0.55;
 	}
 	@media (prefers-reduced-motion: reduce) {
 		.voice-orb {
+			transition: none;
+		}
+		.voice-orb::before {
+			animation: none;
+			transform: none;
 			transition: none;
 		}
 	}
