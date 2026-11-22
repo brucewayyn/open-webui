@@ -1,4 +1,6 @@
 <script lang="ts">
+	import ParticleOrb from './MessageInput/CallOverlay/ParticleOrb.svelte';
+	import { getOutputText } from './Messages/structuredOutput';
 	import { resolveTerminalTarget } from '$lib/apis/terminal';
 	import type { TerminalContext } from '$lib/types';
 	import {
@@ -69,7 +71,8 @@
 		getUserPosition,
 		getUserTimezone,
 		getWeekday,
-		isRasterImageContentType
+		isRasterImageContentType,
+		removeAllDetails
 	} from '$lib/utils';
 	import { uploadFile } from '$lib/apis/files';
 	import {
@@ -217,6 +220,13 @@
 		((taskIds && taskIds.length > 0) ||
 			(history.currentId && history.messages[history.currentId]?.done != true) ||
 			generating);
+	$: currentReply = history?.currentId ? history.messages[history.currentId] : null;
+	$: particleState = !isActive || currentReply?.error
+		? 'idle'
+		: currentReply?.role === 'assistant' &&
+			  (getOutputText(currentReply.output) || removeAllDetails(currentReply.content ?? '')).trim()
+			? 'speaking'
+			: 'thinking';
 	$: canCompact = !!history?.currentId;
 	$: canSide =
 		($_user?.role === 'admin' ||
@@ -2113,6 +2123,11 @@
 							}}
 						/>
 					</div>
+					{#if callEnabled && !callActive && !recording && !embedded}
+						<div class="pointer-events-none flex h-11 w-full items-center justify-center" aria-hidden="true">
+							<ParticleOrb state={particleState} size={64} />
+						</div>
+					{/if}
 					<form
 						class="w-full flex flex-col gap-1.5 {recording ? 'hidden' : ''}"
 						on:submit|preventDefault={() => {

@@ -3,7 +3,7 @@
 	import { voiceCall } from '$lib/stores';
 	import type { RealtimeCall } from '$lib/utils/realtime';
 	import Spinner from '$lib/components/common/Spinner.svelte';
-	import VoiceOrb from './VoiceOrb.svelte';
+	import ParticleOrb from './ParticleOrb.svelte';
 	import VoiceAvatar from './VoiceAvatar.svelte';
 	import { getChatContext } from '$lib/components/chat/context';
 
@@ -104,16 +104,25 @@
 					</div>
 				{/if}
 			{:else}
-				<VoiceOrb
-					speaking={bridge.speaking && !unavailable}
-					level={unavailable
-						? 0
-						: bridge.speaking
-							? bridge.outputLevel
-							: bridge.muted
-								? 0
-								: bridge.inputLevel}
-					muted={unavailable || (bridge.muted && !bridge.speaking)}
+				<ParticleOrb
+					state={bridge.error
+						? 'error'
+						: bridge.connecting
+							? 'connecting'
+							: unavailable
+								? 'idle'
+								: bridge.speaking
+									? 'speaking'
+									: bridge.working
+										? 'thinking'
+										: bridge.muted
+											? 'disabled'
+											: 'listening'}
+					level={Math.min(1, Math.max(0, bridge.speaking
+						? bridge.outputLevel * 12
+						: bridge.muted || unavailable
+							? 0
+							: bridge.inputLevel * 6))}
 				/>
 			{/if}
 		</button>
