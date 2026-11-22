@@ -4,6 +4,8 @@ import asyncio
 import base64
 import contextlib
 import logging
+import os
+from time import monotonic
 from urllib.parse import urlencode, urlsplit, urlunsplit
 
 import aiohttp
@@ -14,6 +16,7 @@ from open_webui.env import AIOHTTP_CLIENT_SESSION_SSL, BYPASS_MODEL_ACCESS_CONTR
 from open_webui.models.chats import Chats
 from open_webui.models.config import Config
 from open_webui.models.models import Models, ModelVoice
+from open_webui.models.voice_call_usage import VoiceCallAlreadyActive, VoiceLimitReached, reserve_voice_call
 from open_webui.utils.access_control import has_permission
 from open_webui.utils.auth import get_verified_user_by_token
 from open_webui.utils.headers import get_microsoft_entra_id_access_token, include_user_info_headers
@@ -27,6 +30,17 @@ log = logging.getLogger(__name__)
 
 # Messages are bounded before JSON parsing. Audio appends contain at most one second.
 MAX_EVENT_BYTES = 512 * 1024
+LIMITED_VOICE_USERS = {
+    email.strip().casefold() for email in os.getenv('SHOOB_DAILY_VOICE_LIMIT_EMAILS', '').split(',') if email.strip()
+}
+CHILD_CALL_INSTRUCTIONS = """
+This voice call is for a child. Keep the language natural and age-appropriate. Be curious without
+asking a question after every reply. Let the child finish, then respond directly with a brief,
+specific reaction instead of a scripted greeting or routine praise. Explain how or why when asked.
+For a substantive question, use the chat model and its configured guidance. Avoid requesting
+personal information, inviting secrecy, or portraying yourself as a person. For a serious or
+unsafe situation, encourage the child to get help from a trusted adult right away.
+"""
 CALL_STATUSES = {
     'working': 'I am working on your request.',
     'approval': 'Please review the approval or question in chat. I will wait for you there.',
@@ -363,6 +377,9 @@ async def realtime_call(ws: WebSocket):
     upstream = None
     tasks = []
     user = None
+    reservation = None
+    connected_at = None
+    quota_reached = False
     try:
         async with asyncio.timeout(10):
             raw = await ws.receive_text()
@@ -445,6 +462,12 @@ async def realtime_call(ws: WebSocket):
         voice = override.voice or config.get('audio.realtime.voice')
         if not voice_model or not voice or not config.get('audio.realtime.transcription_model'):
             raise ValueError('Configure the Realtime model, voice, and transcription model')
+        limited = user.email.casefold() in LIMITED_VOICE_USERS
+        if limited:
+            try:
+                reservation = await reserve_voice_call(user.id)
+            except VoiceCallAlreadyActive:
+                raise ValueError("There’s already a voice call open on this account.") from None
         async with asyncio.timeout(30):
             async with asyncio.timeout(15):
                 ws_url, headers = await _get_realtime_connection(config)
@@ -480,6 +503,7 @@ async def realtime_call(ws: WebSocket):
                         'output_modalities': ['audio'],
                         'instructions': (
                             (config.get('audio.realtime.prompt_template') or DEFAULT_REALTIME_CALL_PROMPT_TEMPLATE)
+                            + (CHILD_CALL_INSTRUCTIONS if limited else '')
                             + (AVATAR_CALL_INSTRUCTIONS if protocol.animation_tools else '')
                         ),
                         'audio': {
@@ -506,6 +530,7 @@ async def realtime_call(ws: WebSocket):
             event = await upstream.receive_json()
             if event.get('type') != 'session.updated':
                 raise ValueError('Provider rejected voice configuration. Check model, voice, and transcription model.')
+        connected_at = monotonic()
         await ws.send_json({'type': 'bridge.ready', 'model': voice_model, 'voice': voice, 'sample_rate': 24000})
 
         async def client_events():
@@ -569,9 +594,20 @@ async def realtime_call(ws: WebSocket):
             raise ValueError('Call session expired. Start a new call.')
 
         tasks = [asyncio.create_task(fn()) for fn in (client_events, provider_events, check_auth)]
-        done, _ = await asyncio.wait(tasks, return_when=asyncio.FIRST_COMPLETED)
+        if reservation:
+            until_reset = max(0, reservation.reset_in - (connected_at - reservation.reserved_at))
+            timeout = min(reservation.remaining, until_reset)
+        else:
+            timeout = None
+        done, _ = await asyncio.wait(tasks, timeout=timeout, return_when=asyncio.FIRST_COMPLETED)
+        if not done:
+            if until_reset < reservation.remaining:
+                raise ValueError("A new day has started. Start a new call to use today's voice time.")
+            raise VoiceLimitReached
         for task in done:
             task.result()
+    except VoiceLimitReached:
+        quota_reached = True
     except WebSocketDisconnect:
         pass
     except asyncio.CancelledError:
@@ -590,10 +626,22 @@ async def realtime_call(ws: WebSocket):
         with contextlib.suppress(Exception):
             await ws.send_json({'type': 'bridge.error', 'message': detail})
     finally:
+        ended_at = monotonic()
         for task in tasks:
             task.cancel()
         await asyncio.gather(*tasks, return_exceptions=True)
         if upstream is not None:
-            await upstream.close()
+            with contextlib.suppress(Exception):
+                async with asyncio.timeout(3):
+                    await upstream.close()
+        if reservation:
+            try:
+                await reservation.release(connected_at, ended_at)
+            except Exception:
+                log.exception('Could not settle daily voice usage for user_id=%s', user.id)
+        if quota_reached:
+            with contextlib.suppress(Exception):
+                async with asyncio.timeout(2):
+                    await ws.send_json({'type': 'bridge.daily_voice_limit'})
         with contextlib.suppress(Exception):
             await ws.close()

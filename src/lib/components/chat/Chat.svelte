@@ -2804,7 +2804,13 @@
 			change: () => {
 				bridge = bridge;
 			},
-			error: (message) => toast.error(message)
+			error: (message) => toast.error(message),
+			dailyVoiceLimit: async () => {
+				voiceCall.set(false);
+				toast.info($i18n.t('You’ve reached your daily voice limit. You can keep messaging ChatGPT here.'));
+				await tick();
+				messageInput?.focus({ preventScroll: true });
+			}
 		});
 		return () => bridge?.end();
 	});

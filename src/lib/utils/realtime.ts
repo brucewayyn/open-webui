@@ -37,6 +37,7 @@ type Options = {
 	saveVoice: (messageId: string, voice: any) => Promise<void>;
 	change: () => void;
 	error: (message: string) => void;
+	dailyVoiceLimit: () => void;
 };
 
 export function getBridgeTurnState(message: any) {
@@ -346,6 +347,11 @@ export class RealtimeCall {
 
 	private event(event: any) {
 		const type = event.type;
+		if (type === 'bridge.daily_voice_limit') {
+			this.end();
+			this.options.dailyVoiceLimit();
+			return;
+		}
 		if (type === 'bridge.error') {
 			if (event.fatal === false) this.options.error(event.message);
 			else this.fail(event.message);
