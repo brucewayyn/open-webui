@@ -380,8 +380,8 @@ export const createParticleRenderer = (canvas: HTMLCanvasElement, size: number) 
 	let ringPhase = 0;
 
 	const ensurePalette = (errorW: number) => {
-		const from = '#f0abfc';
-		const to = '#818cf8';
+		const from = '#818cf8';
+		const to = '#22d3ee';
 		const errKey = Math.round(errorW * 64);
 		const key = `${from}|${to}|${errKey}`;
 		if (key === paletteKey) return;
