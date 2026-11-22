@@ -713,17 +713,9 @@
 		dir={$settings.chatDirection}
 		style="scroll-margin-top: 3rem;"
 	>
-		{#if !compactPreview && !readOnly}
-			<div class="flex size-9 shrink-0 items-center justify-center ltr:mr-1 rtl:ml-1">
-				<ParticleOrb
-					size={42}
-					animated={!message.done && !message.error}
-					state={message.done || message.error
-						? 'idle'
-						: visibleResponseContent.trim()
-							? 'speaking'
-							: 'thinking'}
-				/>
+		{#if isLastMessage && !compactPreview && !readOnly && !message.done && !message.error}
+			<div class="flex size-7 shrink-0 items-center justify-center mt-0.5 ltr:mr-2 rtl:ml-2">
+				<ParticleOrb size={42} state={visibleResponseContent.trim() ? 'speaking' : 'thinking'} />
 			</div>
 		{:else}
 			<div class={`shrink-0 ltr:mr-2 rtl:ml-2 hidden @lg:flex mt-0.5 `}>

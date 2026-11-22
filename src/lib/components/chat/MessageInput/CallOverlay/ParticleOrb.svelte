@@ -10,12 +10,10 @@
 	let {
 		state: orbState = 'idle',
 		size = 168,
-		animated = true,
 		level
 	}: {
 		state?: OrbState;
 		size?: number;
-		animated?: boolean;
 		level?: number;
 	} = $props();
 
@@ -46,7 +44,7 @@
 
 			const dt = previous ? Math.min((now - previous) / 1000, 0.1) : 0;
 			previous = now;
-			if (motion.matches || !animated) {
+			if (motion.matches) {
 				mix = createStateMix(orbState);
 				energy = 0;
 				render(mix.weights, 0, 0);
@@ -96,7 +94,6 @@
 
 	$effect(() => {
 		orbState;
-		animated;
 		wake();
 	});
 </script>
