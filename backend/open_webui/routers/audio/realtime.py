@@ -3,6 +3,7 @@
 import asyncio
 import base64
 import contextlib
+import json
 import logging
 import os
 from time import monotonic
@@ -16,7 +17,7 @@ from open_webui.env import AIOHTTP_CLIENT_SESSION_SSL, BYPASS_MODEL_ACCESS_CONTR
 from open_webui.models.chats import Chats
 from open_webui.models.config import Config
 from open_webui.models.models import Models, ModelVoice
-from open_webui.models.voice_call_usage import VoiceCallAlreadyActive, VoiceLimitReached, reserve_voice_call
+from open_webui.models.voice_call_usage import DAILY_SECONDS, VoiceCallAlreadyActive, VoiceLimitReached, reserve_voice_call
 from open_webui.utils.access_control import has_permission
 from open_webui.utils.auth import get_verified_user_by_token
 from open_webui.utils.headers import get_microsoft_entra_id_access_token, include_user_info_headers
@@ -33,6 +34,20 @@ MAX_EVENT_BYTES = 512 * 1024
 LIMITED_VOICE_USERS = {
     email.strip().casefold() for email in os.getenv('SHOOB_DAILY_VOICE_LIMIT_EMAILS', '').split(',') if email.strip()
 }
+def _load_voice_limits() -> dict[str, int]:
+    try:
+        overrides = json.loads(os.getenv('SHOOB_DAILY_VOICE_MINUTES_BY_EMAIL', '{}'))
+        if not isinstance(overrides, dict):
+            raise ValueError
+        if any(not email.strip() or type(minutes) is not int or minutes <= 0 for email, minutes in overrides.items()):
+            raise ValueError
+        return {email.strip().casefold(): minutes * 60 for email, minutes in overrides.items()}
+    except ValueError:
+        log.error('Invalid SHOOB_DAILY_VOICE_MINUTES_BY_EMAIL; using default voice limits')
+        return {}
+
+
+VOICE_LIMITS = _load_voice_limits()
 CHILD_CALL_INSTRUCTIONS = """
 This voice call is for a child. Keep the language natural and age-appropriate. Be curious without
 asking a question after every reply. Let the child finish, then respond directly with a brief,
@@ -462,10 +477,11 @@ async def realtime_call(ws: WebSocket):
         voice = override.voice or config.get('audio.realtime.voice')
         if not voice_model or not voice or not config.get('audio.realtime.transcription_model'):
             raise ValueError('Configure the Realtime model, voice, and transcription model')
-        limited = user.email.casefold() in LIMITED_VOICE_USERS
+        email = user.email.casefold()
+        limited = email in LIMITED_VOICE_USERS or email in VOICE_LIMITS
         if limited:
             try:
-                reservation = await reserve_voice_call(user.id)
+                reservation = await reserve_voice_call(user.id, VOICE_LIMITS.get(email, DAILY_SECONDS))
             except VoiceCallAlreadyActive:
                 raise ValueError("There’s already a voice call open on this account.") from None
         async with asyncio.timeout(30):
