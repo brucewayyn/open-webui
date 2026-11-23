@@ -39,10 +39,11 @@ class VoiceReservation:
     previous_seconds: int
     reset_in: float
     reserved_at: float
+    daily_seconds: int = DAILY_SECONDS
 
     @property
     def remaining(self) -> int:
-        return DAILY_SECONDS - self.previous_seconds
+        return self.daily_seconds - self.previous_seconds
 
     async def release(self, connected_at: float | None, ended_at: float):
         # Keep partial seconds so repeated short calls cannot evade the quota.
@@ -56,7 +57,7 @@ class VoiceReservation:
             await db.commit()
 
 
-async def reserve_voice_call(user_id: str) -> VoiceReservation:
+async def reserve_voice_call(user_id: str, daily_seconds: int = DAILY_SECONDS) -> VoiceReservation:
     now = datetime.now(EASTERN)
     reserved_at = monotonic()
     day = now.date().isoformat()
@@ -69,12 +70,12 @@ async def reserve_voice_call(user_id: str) -> VoiceReservation:
         try:
             db.add(VoiceCallUsage(user_id=user_id, day=day, used_seconds=0, active=True))
             await db.commit()
-            return VoiceReservation(user_id, day, 0, reset_in, reserved_at)
+            return VoiceReservation(user_id, day, 0, reset_in, reserved_at, daily_seconds)
         except IntegrityError:
             await db.rollback()
 
         usage = await db.get(VoiceCallUsage, (user_id, day))
-        if usage is None or usage.used_seconds >= DAILY_SECONDS:
+        if usage is None or usage.used_seconds >= daily_seconds:
             raise VoiceLimitReached
         if usage.active:
             raise VoiceCallAlreadyActive
@@ -92,4 +93,4 @@ async def reserve_voice_call(user_id: str) -> VoiceReservation:
         if result.rowcount != 1:
             raise VoiceCallAlreadyActive
         await db.commit()
-        return VoiceReservation(user_id, day, current, reset_in, reserved_at)
+        return VoiceReservation(user_id, day, current, reset_in, reserved_at, daily_seconds)

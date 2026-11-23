@@ -22,6 +22,7 @@ from sqlalchemy import (
     Boolean,
     Column,
     Date,
+    Integer,
     String,
     Text,
     case,
@@ -146,6 +147,7 @@ class User(Base):  # identity & profile
     username = Column(String(50), nullable=True)  # custom handle
     role = Column(String, default='pending')  # permissions role
     name = Column(String, nullable=False)  # display name
+    daily_voice_minutes = Column(Integer, nullable=True)
 
     # Profile
     profile_image_url = Column(Text)  # data-uri, path, or external URL
@@ -185,6 +187,7 @@ class UserModel(BaseModel):
     role: str = 'pending'
 
     name: str
+    daily_voice_minutes: int | None = None
 
     profile_image_url: str | None = None
     profile_banner_image_url: str | None = None
@@ -354,6 +357,7 @@ class UserRoleUpdateForm(BaseModel):
 
 
 class UserUpdateForm(BaseModel):
+    daily_voice_minutes: int | None = Field(default=None, strict=True, ge=1, le=1440)
     role: str | None = None
     name: str | None = None
     email: str | None = None

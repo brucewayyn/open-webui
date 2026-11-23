@@ -44,9 +44,12 @@
 		rotatedAPIKey = '';
 		if (selectedUser) {
 			_user = { ...selectedUser, password: '' };
+			dailyVoiceMinutes = selectedUser.daily_voice_minutes ?? undefined;
 			loadUserGroups();
 		}
 	};
+
+	let dailyVoiceMinutes: number | undefined;
 
 	let _user = {
 		profile_image_url: '',
@@ -59,7 +62,10 @@
 	let userGroups: any[] | null = null;
 
 	const submitHandler = async () => {
-		const res = await updateUserById(localStorage.token, selectedUser.id, _user).catch((error) => {
+		const res = await updateUserById(localStorage.token, selectedUser.id, {
+			..._user,
+			daily_voice_minutes: dailyVoiceMinutes ?? null
+		}).catch((error) => {
 			toast.error(`${error}`);
 		});
 
@@ -249,6 +255,25 @@
 												required
 											/>
 										</div>
+									</div>
+
+									<div class="flex flex-col w-full">
+										<label for="daily-voice-minutes" class="mb-1 text-xs text-gray-500">
+											{$i18n.t('Daily voice limit (minutes)')}
+										</label>
+										<input
+											id="daily-voice-minutes"
+											class="w-full text-sm bg-transparent outline-hidden"
+											type="number"
+											min="1"
+											max="1440"
+											step="1"
+											bind:value={dailyVoiceMinutes}
+											placeholder={$i18n.t('Use default')}
+										/>
+										<p class="mt-1 text-xs text-gray-500">
+											{$i18n.t('Applies to new voice calls. Usage resets at midnight Eastern time.')}
+										</p>
 									</div>
 
 									{#if _user?.oauth}

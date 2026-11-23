@@ -1027,6 +1027,8 @@ async def update_user_by_id(
 
         # Build update dict from only the provided fields
         update_data = {}
+        if 'daily_voice_minutes' in form_data.model_fields_set:
+            update_data['daily_voice_minutes'] = form_data.daily_voice_minutes
         if form_data.role is not None:
             update_data['role'] = form_data.role
         if form_data.name is not None:

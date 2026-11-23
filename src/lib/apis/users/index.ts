@@ -576,6 +576,7 @@ export const deleteUserById = async (token: string, userId: string) => {
 };
 
 type UserUpdateForm = {
+	daily_voice_minutes?: number | null;
 	role: string;
 	profile_image_url: string;
 	email: string;
@@ -597,7 +598,8 @@ export const updateUserById = async (token: string, userId: string, user: UserUp
 			role: user.role,
 			email: user.email,
 			name: user.name,
-			password: user.password !== '' ? user.password : undefined
+			password: user.password !== '' ? user.password : undefined,
+			daily_voice_minutes: user.daily_voice_minutes
 		})
 	})
 		.then(async (res) => {

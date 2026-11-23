@@ -16,7 +16,12 @@ from open_webui.env import AIOHTTP_CLIENT_SESSION_SSL, BYPASS_MODEL_ACCESS_CONTR
 from open_webui.models.chats import Chats
 from open_webui.models.config import Config
 from open_webui.models.models import Models, ModelVoice
-from open_webui.models.voice_call_usage import VoiceCallAlreadyActive, VoiceLimitReached, reserve_voice_call
+from open_webui.models.voice_call_usage import (
+    DAILY_SECONDS,
+    VoiceCallAlreadyActive,
+    VoiceLimitReached,
+    reserve_voice_call,
+)
 from open_webui.utils.access_control import has_permission
 from open_webui.utils.auth import get_verified_user_by_token
 from open_webui.utils.headers import get_microsoft_entra_id_access_token, include_user_info_headers
@@ -463,9 +468,14 @@ async def realtime_call(ws: WebSocket):
         if not voice_model or not voice or not config.get('audio.realtime.transcription_model'):
             raise ValueError('Configure the Realtime model, voice, and transcription model')
         limited = user.email.casefold() in LIMITED_VOICE_USERS
-        if limited:
+        daily_seconds = (
+            user.daily_voice_minutes * 60
+            if user.daily_voice_minutes is not None
+            else DAILY_SECONDS if limited else None
+        )
+        if daily_seconds is not None:
             try:
-                reservation = await reserve_voice_call(user.id)
+                reservation = await reserve_voice_call(user.id, daily_seconds)
             except VoiceCallAlreadyActive:
                 raise ValueError("There’s already a voice call open on this account.") from None
         async with asyncio.timeout(30):
